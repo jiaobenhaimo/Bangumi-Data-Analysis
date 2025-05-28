@@ -1,6 +1,8 @@
 import csv
 import json
+import pandas as pd
 from typing import Dict
+
 
 CATEGORY_MAP = [
     (4, ["轻小说改", "小说改", "LN改","轻改","小说改编","轻小说改编"]),
@@ -10,15 +12,23 @@ CATEGORY_MAP = [
 ]
 
 def has_japan_tag(subject: Dict) -> bool:
-    if subject.get("nsfw"):
-        return False
+    # if subject.get("nsfw"):
+    #     return False
+    r=0
     s=0
     for tag in subject.get("tags", []):
         if tag.get("name")=="日本":
-            s=s+1
+            r=1
         if tag.get("name")=="TV":
-            s=s+1
-    return s==2
+            s=1
+    
+    for mtag in subject.get("meta_tags", []):
+        if mtag=="日本":
+            r=1
+        if mtag=="TV":
+            s=1
+        
+    return r+s==2
 
 def classify_subject(subject: Dict) -> int:
     all_tags = []
@@ -33,6 +43,11 @@ def classify_subject(subject: Dict) -> int:
                 return cat_id
     
     return 0
+
+def sort_subject(output_path: str) -> None:
+    df = pd.read_csv(output_path)
+    sorted_df = df.sort_values(by=["Adapted From","Date","ID"], ascending=True)
+    sorted_df.to_csv(output_path, index=False)
 
 def process_jsonl(input_path: str, output_path: str) -> None:
     with open(output_path, "w", newline="", encoding="utf-8-sig") as csvfile:
@@ -71,9 +86,11 @@ def process_jsonl(input_path: str, output_path: str) -> None:
                         category,
                         *score_row
                     ])
-                    
+                
                 except (json.JSONDecodeError, KeyError) as e:
                     print(f"Error{line[:50]}--{str(e)}")
+    
+    sort_subject(output_path)
 
 if __name__ == "__main__":
     process_jsonl("data/subject.jsonlines", "data/stats.csv")

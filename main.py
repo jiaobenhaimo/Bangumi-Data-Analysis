@@ -2,6 +2,7 @@ import csv
 import json
 import pandas as pd
 from typing import Dict
+import math
 
 
 CATEGORY_MAP = [
@@ -49,13 +50,17 @@ def sort_subject(output_path: str) -> None:
     sorted_df = df.sort_values(by=["Adapted From","Date","ID"], ascending=True)
     sorted_df.to_csv(output_path, index=False)
 
-def process_jsonl(input_path: str, output_path: str) -> None:
+def process_jsonl(input_path: str, output_path: str, stats_path: str) -> None:
+    numEntries=[0,0,0,0]
+    sumMean=[0,0,0,0]
+    sumSD=[0,0,0,0]
     with open(output_path, "w", newline="", encoding="utf-8-sig") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow([
             "ID", "Title", "Date", "Adapted From",
             "1", "2", "3", "4", "5",
-            "6", "7", "8", "9", "10"
+            "6", "7", "8", "9", "10",
+            "Sum","Mean","Standard Deviation"
         ])
         
         with open(input_path, "r", encoding="utf-8") as jsonlfile:
@@ -75,22 +80,43 @@ def process_jsonl(input_path: str, output_path: str) -> None:
                     
                     score_details = subject.get("score_details", {})
                     score_row = [score_details.get(str(i), 0) for i in range(1, 11)]
-                    
-                    if sum(score_row)<30:
+                    s=sum(score_row)
+
+                    if s<30:
                         continue
 
+                    id=category
+                    mean=sum([score_details.get(str(i), 0)*i for i in range(1, 11)])/s
+                    sd=math.sqrt(sum([score_details.get(str(i), 0)*(i-mean)*(i-mean) for i in range(1, 11)])/s)
+
+                    numEntries[id-1]=numEntries[id-1]+1
+                    sumMean[id-1]=sumMean[id-1]+mean
+                    sumSD[id-1]=sumSD[id-1]+sd
+                
                     writer.writerow([
                         subject["id"],
                         subject.get("name_cn") or subject["name"],
                         subject.get("date")[:4],
                         category,
-                        *score_row
+                        *score_row,
+                        s,
+                        mean,
+                        sd
                     ])
                 
                 except (json.JSONDecodeError, KeyError) as e:
                     print(f"Error{line[:50]}--{str(e)}")
-    
+                    
     sort_subject(output_path)
 
+    with open(stats_path, "w", newline="", encoding="utf-8-sig") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([
+            "Adapted From","Entries","Mean","Standard Deviation"
+        ])
+        for i in range (4):
+            writer.writerow([i+1,numEntries[i],sumMean[i]/numEntries[i],sumSD[i]/numEntries[i]])
+        writer.writerow([0,sum(numEntries),sum(sumMean)/sum(numEntries),sum(sumSD)/sum(numEntries)])
+
 if __name__ == "__main__":
-    process_jsonl("data/subject.jsonlines", "data/stats.csv")
+    process_jsonl("data/subject.jsonlines", "data/data.csv", "data/stats.csv")

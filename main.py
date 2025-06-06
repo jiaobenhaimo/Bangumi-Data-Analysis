@@ -12,9 +12,12 @@ CATEGORY_MAP = [
     (1, ["原创","原创动画"])
 ]
 
+numEntries=[0,0,0,0,0]
+sumMean=[0,0,0,0,0]
+sumSD=[0,0,0,0,0]
+
 def has_japan_tag(subject: Dict) -> bool:
-    # if subject.get("nsfw"):
-    #     return False
+    
     r=0
     s=0
     for tag in subject.get("tags", []):
@@ -29,7 +32,7 @@ def has_japan_tag(subject: Dict) -> bool:
         if mtag=="TV":
             s=1
         
-    return r+s==2
+    return r and s
 
 def classify_subject(subject: Dict) -> int:
     all_tags = []
@@ -50,14 +53,25 @@ def sort_subject(output_path: str) -> None:
     sorted_df = df.sort_values(by=["Adapted From","Date","ID"], ascending=True)
     sorted_df.to_csv(output_path, index=False)
 
+def rating_sd(input_path: str) -> list:
+    sd=[0,0,0,0,0]
+    with open(input_path, "r", newline="", encoding="utf-8-sig") as statsfile:
+        for line in list(statsfile)[1:]:
+            row=line.split(',')
+            type=int(row[2])
+            val=float(row[14])
+            sd[type]=sd[type]+(val-sumMean[type])*(val-sumMean[type])
+            sd[0]=sd[0]+(val-sumMean[0])*(val-sumMean[0])
+    for i in range(5):
+        sd[i]=math.sqrt(sd[i]/numEntries[i])
+    return sd
+
 def process_jsonl(input_path: str, output_path: str, stats_path: str) -> None:
-    numEntries=[0,0,0,0]
-    sumMean=[0,0,0,0]
-    sumSD=[0,0,0,0]
+
     with open(output_path, "w", newline="", encoding="utf-8-sig") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow([
-            "ID", "Title", "Date", "Adapted From",
+            "ID", "Date", "Adapted From",
             "1", "2", "3", "4", "5",
             "6", "7", "8", "9", "10",
             "Sum","Mean","Standard Deviation"
@@ -89,13 +103,16 @@ def process_jsonl(input_path: str, output_path: str, stats_path: str) -> None:
                     mean=sum([score_details.get(str(i), 0)*i for i in range(1, 11)])/s
                     sd=math.sqrt(sum([score_details.get(str(i), 0)*(i-mean)*(i-mean) for i in range(1, 11)])/s)
 
-                    numEntries[id-1]=numEntries[id-1]+1
-                    sumMean[id-1]=sumMean[id-1]+mean
-                    sumSD[id-1]=sumSD[id-1]+sd
+                    numEntries[id]=numEntries[id]+1
+                    sumMean[id]=sumMean[id]+mean
+                    sumSD[id]=sumSD[id]+sd
+
+                    numEntries[0]=numEntries[0]+1
+                    sumMean[0]=sumMean[0]+mean
+                    sumSD[0]=sumSD[0]+sd
                 
                     writer.writerow([
                         subject["id"],
-                        subject.get("name_cn") or subject["name"],
                         subject.get("date")[:4],
                         category,
                         *score_row,
@@ -106,17 +123,22 @@ def process_jsonl(input_path: str, output_path: str, stats_path: str) -> None:
                 
                 except (json.JSONDecodeError, KeyError) as e:
                     print(f"Error{line[:50]}--{str(e)}")
-                    
+    for i in range(5):
+        num=numEntries[i]
+        sumMean[i]=sumMean[i]/num
+        sumSD[i]=sumSD[i]/num
+
     sort_subject(output_path)
 
     with open(stats_path, "w", newline="", encoding="utf-8-sig") as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow([
-            "Adapted From","Entries","Mean","Standard Deviation"
+            "Adapted From","Entries","Mean","Entry Spread","Rating Spread"
         ])
-        for i in range (4):
-            writer.writerow([i+1,numEntries[i],sumMean[i]/numEntries[i],sumSD[i]/numEntries[i]])
-        writer.writerow([0,sum(numEntries),sum(sumMean)/sum(numEntries),sum(sumSD)/sum(numEntries)])
+        ratingsd=rating_sd(output_path)
+
+        for i in range (5):
+            writer.writerow([i,numEntries[i],sumMean[i],sumSD[i],ratingsd[i]])
 
 if __name__ == "__main__":
     process_jsonl("data/subject.jsonlines", "data/data.csv", "data/stats.csv")

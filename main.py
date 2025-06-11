@@ -2,6 +2,7 @@ import csv
 import json
 import pandas as pd
 import math
+import scipy.stats as stats
 import random
 import os
 from typing import Dict, List
@@ -143,9 +144,30 @@ def random_sample(input_path: str, output_path: str, n: int = 40) -> None:
     if samples:
         pd.concat(samples).to_csv(output_path, index=False)
 
-def chi_squared_test(data_path: str) -> None:
-    """Perform chi-squared tests on sampled data"""
-    print("Chi-squared GOF would be performed here")
+def chi_gof(data_path: str) -> None:
+    # numEntries=[0,0,0,0,0]
+    sumMean=[0,0,0,0,0]
+    sumSD=[0,0,0,0,0]
+    ratingsd=[0,0,0,0,0]
+    with open(data_path, "r", newline="", encoding="utf-8-sig") as statsfile:
+        line=list(statsfile)[1:]
+        for i in range(5):
+            row=line[i].split(',')
+            # numEntries[i]=int(row[1])/4
+            sumMean[i]=float(row[2])
+            sumSD[i]=float(row[3])
+            ratingsd[i]=float(row[4])
+        
+    print("Chi-squared GOF results")
+    # print(numEntries[1:],[numEntries[0]]*4)
+    # print("Number p_val: ",stats.chisquare(numEntries[1:],[numEntries[0]/4]*4))
+    print(sumMean[1:],[sumMean[0]]*4)
+    print("Mean p_val: ",stats.chisquare(sumMean[1:],[sumMean[0]]*4))
+    print(sumSD[1:],[sumSD[0]]*4)
+    print("Entry spread p_val: ",stats.chisquare(sumSD[1:],[sumSD[0]]*4))
+    print(ratingsd[1:],[ratingsd[0]]*4)
+    print("Rating spread p_val: ",stats.chisquare(ratingsd[1:],[ratingsd[0]]*4))
+
 
 if __name__ == "__main__":
     os.system("rm -rf data/*.csv")
@@ -153,4 +175,4 @@ if __name__ == "__main__":
     generate_stats("data/data.csv", "data/data_stats.csv")
     random_sample("data/data.csv", "data/sample.csv")
     generate_stats("data/sample.csv", "data/sample_stats.csv")
-    # chi_squared_test("data/sample.csv")
+    chi_gof("data/sample_stats.csv")

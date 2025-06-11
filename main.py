@@ -1,38 +1,35 @@
 import csv
 import json
 import pandas as pd
-from typing import Dict
 import math
-
+import random
+import os
+from typing import Dict, List
 
 CATEGORY_MAP = [
-    (4, ["轻小说改", "小说改", "LN改","轻改","小说改编","轻小说改编"]),
-    (3, ["游戏改", "GAL改", "视觉小说改","游戏改编","游改","galgame改","遊戲改","GAL改编"]),
-    (2, ["漫画改","漫改", "漫画改编"]),
-    (1, ["原创","原创动画"])
+    (4, ["轻小说改", "小说改", "LN改", "轻改", "小说改编", "轻小说改编"]),
+    (3, ["游戏改", "GAL改", "视觉小说改", "游戏改编", "游改", "galgame改", "遊戲改", "GAL改编"]),
+    (2, ["漫画改", "漫改", "漫画改编"]),
+    (1, ["原创", "原创动画"])
 ]
 
-numEntries=[0,0,0,0,0]
-sumMean=[0,0,0,0,0]
-sumSD=[0,0,0,0,0]
-
 def has_japan_tag(subject: Dict) -> bool:
+    japan_tag = False
+    tv_tag = False
     
-    r=0
-    s=0
     for tag in subject.get("tags", []):
-        if tag.get("name")=="日本":
-            r=1
-        if tag.get("name")=="TV":
-            s=1
+        if tag.get("name") == "日本":
+            japan_tag = True
+        if tag.get("name") == "TV":
+            tv_tag = True
     
     for mtag in subject.get("meta_tags", []):
-        if mtag=="日本":
-            r=1
-        if mtag=="TV":
-            s=1
+        if mtag == "日本":
+            japan_tag = True
+        if mtag == "TV":
+            tv_tag = True
         
-    return r and s
+    return japan_tag and tv_tag
 
 def classify_subject(subject: Dict) -> int:
     all_tags = []
@@ -50,95 +47,110 @@ def classify_subject(subject: Dict) -> int:
 
 def sort_subject(output_path: str) -> None:
     df = pd.read_csv(output_path)
-    sorted_df = df.sort_values(by=["Adapted From","Date","ID"], ascending=True)
+    sorted_df = df.sort_values(by=["Adapted From", "Date", "ID"], ascending=True)
     sorted_df.to_csv(output_path, index=False)
 
-def rating_sd(input_path: str) -> list:
-    sd=[0,0,0,0,0]
-    with open(input_path, "r", newline="", encoding="utf-8-sig") as statsfile:
-        for line in list(statsfile)[1:]:
-            row=line.split(',')
-            type=int(row[2])
-            val=float(row[14])
-            sd[type]=sd[type]+(val-sumMean[type])*(val-sumMean[type])
-            sd[0]=sd[0]+(val-sumMean[0])*(val-sumMean[0])
-    for i in range(5):
-        sd[i]=math.sqrt(sd[i]/numEntries[i])
-    return sd
+def process_subject(subject: Dict) -> Dict:
+    score_details = subject.get("score_details", {})
+    scores = [score_details.get(str(i), 0) for i in range(1, 11)]
+    total = sum(scores)
+    
+    if total < 30:
+        return None
 
-def process_jsonl(input_path: str, output_path: str, stats_path: str) -> None:
+    weighted_sum = sum(i * score for i, score in enumerate(scores, start=1))
+    mean = weighted_sum / total
+    variance = sum(score * (i - mean)**2 for i, score in enumerate(scores, start=1)) / total
+    sd = math.sqrt(variance)
 
-    with open(output_path, "w", newline="", encoding="utf-8-sig") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([
-            "ID", "Date", "Adapted From",
-            "1", "2", "3", "4", "5",
-            "6", "7", "8", "9", "10",
-            "Sum","Mean","Standard Deviation"
-        ])
-        
-        with open(input_path, "r", encoding="utf-8") as jsonlfile:
-            for line in jsonlfile:
-                try:
-                    subject = json.loads(line.strip())
-                    if subject.get("type") != 2:
-                        continue
-                    if not has_japan_tag(subject):
-                        continue
-                    if classify_subject(subject)==0:
-                        continue
-                    if subject.get("date")=="":
-                        continue
-                    
-                    category = classify_subject(subject)
-                    
-                    score_details = subject.get("score_details", {})
-                    score_row = [score_details.get(str(i), 0) for i in range(1, 11)]
-                    s=sum(score_row)
+    return {
+        "ID": subject["id"],
+        "Date": subject.get("date", "")[:4],
+        "Adapted From": classify_subject(subject),
+        **{str(i): scores[i-1] for i in range(1, 11)},
+        "Sum": total,
+        "Mean": mean,
+        "Standard Deviation": sd
+    }
 
-                    if s<30:
-                        continue
-
-                    id=category
-                    mean=sum([score_details.get(str(i), 0)*i for i in range(1, 11)])/s
-                    sd=math.sqrt(sum([score_details.get(str(i), 0)*(i-mean)*(i-mean) for i in range(1, 11)])/s)
-
-                    numEntries[id]=numEntries[id]+1
-                    sumMean[id]=sumMean[id]+mean
-                    sumSD[id]=sumSD[id]+sd
-
-                    numEntries[0]=numEntries[0]+1
-                    sumMean[0]=sumMean[0]+mean
-                    sumSD[0]=sumSD[0]+sd
+def process_jsonl(input_path: str, output_path: str) -> None:
+    data = []
+    
+    with open(input_path, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                subject = json.loads(line.strip())
+                if (subject.get("type") != 2 or 
+                    not has_japan_tag(subject) or 
+                    not subject.get("date")):
+                    continue
                 
-                    writer.writerow([
-                        subject["id"],
-                        subject.get("date")[:4],
-                        category,
-                        *score_row,
-                        s,
-                        mean,
-                        sd
-                    ])
-                
-                except (json.JSONDecodeError, KeyError) as e:
-                    print(f"Error{line[:50]}--{str(e)}")
-    for i in range(5):
-        num=numEntries[i]
-        sumMean[i]=sumMean[i]/num
-        sumSD[i]=sumSD[i]/num
+                if row := process_subject(subject):
+                    data.append(row)
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Error processing line: {str(e)}")
+    
+    # Create and save DataFrame
+    df = pd.DataFrame(data)
+    if not df.empty:
+        df.sort_values(by=["Adapted From", "Date", "ID"], inplace=True)
+        df.to_csv(output_path, index=False)
 
-    sort_subject(output_path)
+def generate_stats(data_path: str, stats_path: str) -> None:
+    """Generate statistics from a CSV file and save to another CSV"""
+    df = pd.read_csv(data_path)
+    stats = []
+    categories = [0] + [cat_id for cat_id, _ in CATEGORY_MAP]
+    
+    # Overall statistics (category 0)
+    overall_stats = calculate_category_stats(df, 0)
+    stats.append([0] + overall_stats)
+    
+    # Category-specific statistics
+    for cat_id, _ in CATEGORY_MAP:
+        cat_df = df[df["Adapted From"] == cat_id]
+        cat_stats = calculate_category_stats(cat_df, cat_id)
+        stats.append([cat_id] + cat_stats)
+    
+    # Save statistics
+    stats_df = pd.DataFrame(stats, columns=[
+        "Adapted From", "Entries", "Mean", "Entry Spread", "Rating Spread"
+    ])
+    stats_df.to_csv(stats_path, index=False)
 
-    with open(stats_path, "w", newline="", encoding="utf-8-sig") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([
-            "Adapted From","Entries","Mean","Entry Spread","Rating Spread"
-        ])
-        ratingsd=rating_sd(output_path)
+def calculate_category_stats(df: pd.DataFrame, category: int) -> List[float]:
+    """Calculate statistics for a specific category"""
+    if df.empty:
+        return [0, 0.0, 0.0, 0.0]
+    
+    entries = len(df)
+    mean = df["Mean"].mean()
+    entry_spread = df["Standard Deviation"].mean()
+    rating_spread = df["Mean"].std(ddof=0)  # Population standard deviation
+    
+    return [entries, mean, entry_spread, rating_spread]
 
-        for i in range (5):
-            writer.writerow([i,numEntries[i],sumMean[i],sumSD[i],ratingsd[i]])
+def random_sample(input_path: str, output_path: str, n: int = 40) -> None:
+    """Create random sample with n entries per category"""
+    df = pd.read_csv(input_path)
+    samples = []
+    
+    for cat_id, _ in CATEGORY_MAP:
+        cat_df = df[df["Adapted From"] == cat_id]
+        if len(cat_df) > 0:
+            samples.append(cat_df.sample(min(n, len(cat_df)), replace=False))
+    
+    if samples:
+        pd.concat(samples).to_csv(output_path, index=False)
+
+def chi_squared_test(data_path: str) -> None:
+    """Perform chi-squared tests on sampled data"""
+    print("Chi-squared GOF would be performed here")
 
 if __name__ == "__main__":
-    process_jsonl("data/subject.jsonlines", "data/data.csv", "data/stats.csv")
+    os.system("rm -rf data/*.csv")
+    process_jsonl("data/subject.jsonlines", "data/data.csv")
+    generate_stats("data/data.csv", "data/data_stats.csv")
+    random_sample("data/data.csv", "data/sample.csv")
+    generate_stats("data/sample.csv", "data/sample_stats.csv")
+    # chi_squared_test("data/sample.csv")

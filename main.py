@@ -157,16 +157,37 @@ def chi_gof(data_path: str) -> None:
             sumMean[i]=float(row[2])
             sumSD[i]=float(row[3])
             ratingsd[i]=float(row[4])
-        
-    print("Chi-squared GOF results")
-    # print(numEntries[1:],[numEntries[0]]*4)
-    # print("Number p_val: ",stats.chisquare(numEntries[1:],[numEntries[0]/4]*4))
-    print(sumMean[1:],[sumMean[0]]*4)
-    print("Mean p_val: ",stats.chisquare(sumMean[1:],[sumMean[0]]*4))
-    print(sumSD[1:],[sumSD[0]]*4)
-    print("Entry spread p_val: ",stats.chisquare(sumSD[1:],[sumSD[0]]*4))
-    print(ratingsd[1:],[ratingsd[0]]*4)
-    print("Rating spread p_val: ",stats.chisquare(ratingsd[1:],[ratingsd[0]]*4))
+
+def anova_test(data_path: str) -> None:
+    df = pd.read_csv(data_path)
+    categories = [1, 2, 3, 4]  # Only the specific categories (ignore overall)
+    
+    print("One-way ANOVA results:")
+    
+    # Perform ANOVA for Mean ratings
+    groups_mean = [df[df['Adapted From'] == cat]['Mean'] for cat in categories]
+    f_stat_mean, p_value_mean = stats.f_oneway(*groups_mean)
+    print(f"Mean ratings: F-statistic = {f_stat_mean:.4f}, p-value = {p_value_mean:.4f}")
+    
+    # Perform ANOVA for Entry Spread (Standard Deviation)
+    groups_sd = [df[df['Adapted From'] == cat]['Standard Deviation'] for cat in categories]
+    f_stat_sd, p_value_sd = stats.f_oneway(*groups_sd)
+    print(f"Entry spread: F-statistic = {f_stat_sd:.4f}, p-value = {p_value_sd:.4f}")
+    
+    # Perform ANOVA for Rating Spread (Std of Means)
+    groups_rating_spread = [df[df['Adapted From'] == cat]['Mean'] for cat in categories]
+    rating_spread_values = [group.std(ddof=0) for group in groups_rating_spread]
+    print(f"Rating spread values: {rating_spread_values}")
+    # Since we only have one value per category, we can't run ANOVA directly
+    # Instead, we'll report the values for manual comparison
+
+if __name__ == "__main__":
+    os.system("rm -rf data/*.csv")
+    process_jsonl("data/subject.jsonlines", "data/data.csv")
+    generate_stats("data/data.csv", "data/data_stats.csv")
+    random_sample("data/data.csv", "data/sample.csv")
+    generate_stats("data/sample.csv", "data/sample_stats.csv")
+    anova_test("data/sample.csv")  # Changed from chi_gof to anova_test
 
 
 if __name__ == "__main__":

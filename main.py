@@ -160,26 +160,40 @@ def chi_gof(data_path: str) -> None:
 
 def anova_test(data_path: str) -> None:
     df = pd.read_csv(data_path)
-    categories = [1, 2, 3, 4]  # Only the specific categories (ignore overall)
+    categories = [1, 2, 3, 4]  # Only specific adaptation categories
     
     print("One-way ANOVA results:")
     
-    # Perform ANOVA for Mean ratings
+    # 1. ANOVA for Mean Ratings (Between-Work Differences)
     groups_mean = [df[df['Adapted From'] == cat]['Mean'] for cat in categories]
     f_stat_mean, p_value_mean = stats.f_oneway(*groups_mean)
     print(f"Mean ratings: F-statistic = {f_stat_mean:.4f}, p-value = {p_value_mean:.4f}")
     
-    # Perform ANOVA for Entry Spread (Standard Deviation)
+    # 2. ANOVA for Entry Spread (Within-Work Variability)
     groups_sd = [df[df['Adapted From'] == cat]['Standard Deviation'] for cat in categories]
     f_stat_sd, p_value_sd = stats.f_oneway(*groups_sd)
     print(f"Entry spread: F-statistic = {f_stat_sd:.4f}, p-value = {p_value_sd:.4f}")
     
-    # Perform ANOVA for Rating Spread (Std of Means)
-    groups_rating_spread = [df[df['Adapted From'] == cat]['Mean'] for cat in categories]
-    rating_spread_values = [group.std(ddof=0) for group in groups_rating_spread]
+    # 3. ANOVA for Rating Spread (Category-Level Consistency)
+    # Prepare data: For each category, calculate the SD of the means
+    category_stats = []
+    for cat in categories:
+        cat_means = df[df['Adapted From'] == cat]['Mean']
+        # Create multiple observations: SD value repeated for each anime in category
+        sd_value = cat_means.std(ddof=0)
+        category_stats.extend([(cat, sd_value)] * len(cat_means))
+    
+    rating_spread_df = pd.DataFrame(category_stats, columns=['Adapted From', 'Rating_Spread'])
+    groups_rating_spread = [
+        rating_spread_df[rating_spread_df['Adapted From'] == cat]['Rating_Spread'] 
+        for cat in categories
+    ]
+    f_stat_rs, p_value_rs = stats.f_oneway(*groups_rating_spread)
+    print(f"Rating spread: F-statistic = {f_stat_rs:.4f}, p-value = {p_value_rs:.4f}")
+    
+    # Report category-level rating spread values
+    rating_spread_values = [group.iloc[0] for group in groups_rating_spread]
     print(f"Rating spread values: {rating_spread_values}")
-    # Since we only have one value per category, we can't run ANOVA directly
-    # Instead, we'll report the values for manual comparison
 
 if __name__ == "__main__":
     os.system("rm -rf data/*.csv")
@@ -187,7 +201,7 @@ if __name__ == "__main__":
     generate_stats("data/data.csv", "data/data_stats.csv")
     random_sample("data/data.csv", "data/sample.csv")
     generate_stats("data/sample.csv", "data/sample_stats.csv")
-    anova_test("data/sample.csv")  # Changed from chi_gof to anova_test
+    anova_test("data/sample.csv")
 
 
 if __name__ == "__main__":

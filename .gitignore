@@ -165,5 +165,8 @@ cython_debug/
 *.jsonl
 *.csv
 *.aux
-*.pdf
 *.gz
+/_minted-report
+/_markdown_report
+*.err
+*.lua

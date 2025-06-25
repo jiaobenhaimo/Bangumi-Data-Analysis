@@ -7,11 +7,16 @@
 \usepackage[margin=1in]{geometry}
 \usepackage[font=small,labelfont=bf]{caption}
 \usepackage{float}
+\usepackage{CJKutf8}
+\usepackage[settings]{markdown}
+\usepackage{verbatim}
+\usepackage{minted}
 \usepackage{indentfirst}
+\usepackage{pmboxdraw}
 
 \title{Impact of Adaptation Source on Anime Ratings: Statistical Analysis Report}
-\author{}
-\date{}
+\author{Jacques Jiao Yuanzhe}
+\date{June 26th, 2025}
 
 \begin{document}
 
@@ -23,39 +28,19 @@ Anime has evolved into a global cultural phenomenon with adaptations originating
 \section{Data Description and Preparation}
 
 \subsection{Bangumi.tv Platform Overview}
-Bangumi.tv (番组计划) is a specialized Chinese-language platform dedicated to cataloging and discussing Japanese media. Founded in 2008, it serves as China's authoritative database for Japanese animation, manga, games, and music. Key platform characteristics include:
+Bangumi.tv (\begin{CJK*}{UTF8}{gbsn}番组计划\end{CJK}) is a specialized Chinese-language platform dedicated to cataloging and discussing Japanese media. Founded in 2008, it serves as China's authoritative database for Japanese animation, manga, games, and music. Key platform characteristics include:
 
 \begin{itemize}
     \item Over 1.5 million registered users (as of 2023)
-    \item Detailed metadata for 200,000+ media entries
-    \item Academic-grade tagging system with hierarchical relationships
+    \item 552,820 entries for works (as of June 24, 2025)
     \item Collaborative wiki-style editing with version control
-    \item Comprehensive episode-level tracking for series
+    \item Information released under CC BY-SA license, allowing free use under certain conditions
 \end{itemize}
 
-\subsection{Data Credibility Assessment}
-We evaluated Bangumi's data quality using five credibility dimensions:
-
-\begin{table}[H]
-\centering
-\caption{Data Credibility Assessment}
-\begin{tabular}{p{3cm}p{4cm}p{6cm}}
-\toprule
-\textbf{Dimension} & \textbf{Assessment} & \textbf{Supporting Evidence} \\
-\midrule
-Accuracy & High & • Regular reconciliation with official Japanese sources • Community moderation with 3-tier verification • 92\% match rate in validation against AniDB \\
-Completeness & Medium-High & • Comprehensive coverage of mainstream Japanese media • Moderate gaps in pre-2000 obscurities • Complete metadata for 98\% of post-2010 TV anime \\
-Consistency & High & • Standardized data schema since 2010 • Automated consistency checks • Inter-rater reliability score of 0.89 (Cohen's κ) \\
-Timeliness & Medium & • Weekly metadata updates • Seasonal anime added pre-broadcast • Historical data gaps \\
-Provenance & Excellent & • Clear edit history with attribution • Sources documented for 85\% of claims • Transparent export methodology \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 \subsection{Data Processing Pipeline}
-The analysis used 4,130 Japanese TV anime entries meeting the following criteria:
+We utilize the subject.jsonlines file in the official data dump released on GitHub at bangumi/Archive. The analysis used 4,136 Japanese TV anime entries meeting the following criteria:
 \begin{enumerate}
-    \item \textbf{Filtering}: Restricted to animation (type=2) with "日本" and "TV" tags and ≥30 ratings
+    \item \textbf{Filtering}: Restricted to animation (type=2) with "\begin{CJK*}{UTF8}{gbsn}日本\end{CJK}" and "TV" tags and $\geq30$ ratings
     \item \textbf{Classification}: Categorized into:
     \begin{itemize}
         \item Original works (Category 1)
@@ -72,133 +57,366 @@ The analysis used 4,130 Japanese TV anime entries meeting the following criteria
     \item \textbf{Sampling}: Generated representative subset (n=40 per category)
 \end{enumerate}
 
-\section{Methodology}
+\section{Statistical Analysis}
 
-\subsection{Analytical Framework}
-We employed one-way ANOVA to test differences between adaptation categories. The model is defined as:
-\[
-Y_{ij} = \mu + \tau_i + \epsilon_{ij}
-\]
-Where:
-\begin{itemize}
-    \item $Y_{ij}$ is the j-th observation in group i
-    \item $\mu$ is the overall mean
-    \item $\tau_i$ is the effect of the i-th group
-    \item $\epsilon_{ij}$ is the random error
-\end{itemize}
-
-Test statistic:
-\[
-F = \frac{MSB}{MSE} = \frac{\text{Between-group variability}}{\text{Within-group variability}}
-\]
-
-\subsection{Test Prerequisites and Validation}
-We verified ANOVA assumptions:
-
-\begin{table}[H]
-\centering
-\caption{ANOVA Assumption Verification}
-\begin{tabular}{p{5cm}p{5cm}p{5cm}}
-\toprule
-\textbf{Assumption} & \textbf{Validation Method} & \textbf{Result} \\
-\midrule
-Independence of observations & Sampling design & Ensured through random sampling \\
-Normality & Shapiro-Wilk test (α=0.10) & $W=0.978, p=0.062$ (Normal) \\
-Homogeneity of variances & Levene's test (α=0.10) & $F(3,156)=1.842, p=0.142$ (Equal variances) \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Statistical Tests}
-We conducted three ANOVA tests with significance threshold α=0.10:
+\subsection{Research Questions}
+We investigate three primary questions about anime adaptations:
 \begin{enumerate}
-    \item Mean ratings across adaptation sources
-    \item Entry spread (within-anime variability)
-    \item Rating spread (between-anime consistency)
+    \item Do different adaptation sources have different \textit{mean ratings}? 
+    \item Do different adaptation sources have different \textit{within-anime rating variability}? 
+    \item Do different adaptation sources have different \textit{between-anime rating consistency}? 
 \end{enumerate}
 
-Post-hoc Tukey HSD tests were performed for significant findings:
-\[
-HSD = q_{\alpha,k,df} \sqrt{\frac{MSE}{n}}
-\]
+\subsection{Methods}
+All analyses were conducted at $\alpha = 0.10$ significance level using Python 3.13.4 with the following libraries: pandas for data manipulation, scipy for statistical tests, and numpy for numerical computations. The complete analysis code is provided in Appendix A, and full environment requirements are in Appendix B.
 
-\section{Results}
+\subsubsection{Question 1: Mean Ratings}
+One-way ANOVA was selected to compare means across multiple independent groups. This test is appropriate for:
+\begin{itemize}
+    \item Continuous response variable (mean ratings)
+    \item Categorical predictor with $>2$ groups (adaptation sources)
+    \item Independent observations across groups
+\end{itemize}
 
-\subsection{Descriptive Statistics}
 \begin{table}[H]
 \centering
-\caption{Descriptive Statistics (Full Dataset)}
-\begin{tabular}{lrrrr}
+\caption{Conditions for one-way ANOVA (Mean Ratings)}
+\begin{tabular}{lcp{9cm}}
 \toprule
-\textbf{Adaptation Source} & \textbf{Entries} & \textbf{Mean Rating} & \textbf{Entry Spread} & \textbf{Rating Spread} \\
+\textbf{Condition} & \textbf{Fulfilled} & \textbf{Justification} \\
 \midrule
-Overall & 4,130 & 6.43 & 1.28 & 0.98 \\
-Original (1) & 986 & 6.39 & 1.32 & 1.02 \\
-Manga (2) & 1,884 & 6.63 & 1.24 & 0.90 \\
-Game (3) & 479 & 6.08 & 1.32 & 0.95 \\
-Light Novel (4) & 692 & 6.22 & 1.28 & 1.07 \\
+Independence & Yes & Random sampling ensures independence \\
+Normality & Yes & Shapiro-Wilk test ($p > 0.10$) confirmed normality \\
+Homogeneity of Variance & Yes & Levene's test ($p = 0.3999 > 0.10$) confirmed equal variances \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{ANOVA Results}
+\subsubsection{Question 2: Within-Anime Variability}
+One-way ANOVA was used to compare the mean standard deviations of ratings within individual anime. This test is appropriate for:
+\begin{itemize}
+    \item Continuous measure of dispersion (within-anime SD)
+    \item Comparison across $>2$ independent groups
+    \item Assessing systematic differences in opinion diversity
+\end{itemize}
+
 \begin{table}[H]
 \centering
-\caption{ANOVA Test Results (α=0.10)}
-\begin{tabular}{lrrrr}
+\caption{Conditions for one-way ANOVA (Within-Anime Variability)}
+\begin{tabular}{lcp{9cm}}
 \toprule
-\textbf{Analysis Dimension} & \textbf{F-statistic} & \textbf{p-value} & \textbf{Significance} \\
+\textbf{Condition} & \textbf{Fulfilled} & \textbf{Justification} \\
 \midrule
-Mean Ratings & 4.3288 & 0.0058 & Significant \\
-Entry Spread & 2.2615 & 0.0835 & Significant \\
-Rating Spread & $\infty$ & $<0.0001$ & Significant \\
+Independence & Yes & Stratified random sampling ensures independence \\
+Normality & Yes & Shapiro-Wilk test ($p > 0.10$) confirmed normality \\
+Homogeneity of Variance & Yes & Levene's test ($p = 0.1349 > 0.10$) confirmed equal variances \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Post-hoc Analysis}
-\textbf{Mean Ratings:}
+\subsubsection{Question 3: Between-Anime Consistency}
+Levene's test was chosen to compare the variances of mean ratings across anime titles within categories. This test is appropriate for:
 \begin{itemize}
-    \item Manga (6.63) > Game (6.08), $p=0.008$
-    \item Original (6.39) > Game (6.08), $p=0.012$
+    \item Assessing homogeneity of variances across groups
+    \item Robust to departures from normality
+    \item Evaluating rating consistency across multiple adaptations
 \end{itemize}
 
-\textbf{Rating Spread:}
+\begin{table}[H]
+\centering
+\caption{Conditions for Levene's Test (Between-Anime Consistency)}
+\begin{tabular}{lcp{7.5cm}}
+\toprule
+\textbf{Condition} & \textbf{Fulfilled} & \textbf{Justification} \\
+\midrule
+Independence & Yes & Random sampling ensures independence \\
+Continuous Data & Yes & Interval scale ratings (1-10) \\
+Minimum Group Size & Yes & $n=45$ per group exceeds minimum requirements \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Results}
+
+\subsubsection{Question 1: Mean Ratings}
+
+\textbf{Hypotheses}
+
+\begin{align*}
+H_0&: \mu_{\text{Original}} = \mu_{\text{Manga}} = \mu_{\text{Game}} = \mu_{\text{Light Novel}} \\
+H_a&: \text{At least one mean differs}
+\end{align*}
+
+\textbf{Test Statistic}
+
+One-way ANOVA: $F(3, 176) = 2.8939$
+
+\textbf{P-value and Conclusion}
+
+$p = 0.0368 < 0.10$ \\
+Reject $H_0$. There is significant evidence that adaptation sources differ in mean ratings at $\alpha = 0.10$.
+
+\subsubsection{Question 2: Within-Anime Variability}
+
+\textbf{Hypotheses}
+
+\begin{align*}
+H_0&: \sigma_{\text{Original}} = \sigma_{\text{Manga}} = \sigma_{\text{Game}} = \sigma_{\text{Light Novel}} \\
+H_a&: \text{At least one within-anime SD differs}
+\end{align*}
+
+\textbf{Test Statistic}
+
+One-way ANOVA: $F(3, 176) = 1.8785$
+
+\textbf{P-value and Conclusion}
+
+$p = 0.1349 > 0.10$ \\
+Fail to reject $H_0$. No significant difference in within-anime rating variability at $\alpha = 0.10$.
+
+\subsubsection{Question 3: Between-Anime Consistency}
+
+\textbf{Hypotheses}
+
+\begin{align*}
+H_0&: \text{Var}(\mu_{\text{Original}}) = \text{Var}(\mu_{\text{Manga}}) = \text{Var}(\mu_{\text{Game}}) = \text{Var}(\mu_{\text{Light Novel}}) \\
+H_a&: \text{At least one variance differs}
+\end{align*}
+
+\textbf{Test Statistic}
+
+Levene's test: $W = 0.9877$
+
+\textbf{P-value and Conclusion}
+
+$p = 0.3999 > 0.10$ \\
+Fail to reject $H_0$. No significant difference in between-anime rating consistency at $\alpha = 0.10$.
+
+
+\subsection{Discussion}
+Our analysis reveals three key findings at $\alpha = 0.10$:
+\begin{enumerate}
+    \item \textbf{Source material significantly impacts mean ratings} ($F=2.89$, $p=0.0368$). Manga adaptations received the highest average ratings (6.70), while game adaptations received the lowest (5.95).
+    
+    \item \textbf{Within-anime rating variability shows no significant differences} ($F=1.88$, $p=0.1349$). All sources exhibit similar dispersion of individual opinions about specific titles.
+    
+    \item \textbf{Between-anime consistency is similar across sources} (Levene's $W=0.99$, $p=0.3999$). Rating patterns show comparable consistency within each adaptation category.
+\end{enumerate}
+
+\section{Conclusion}
+This study demonstrates that at $\alpha = 0.10$, adaptation source significantly influences anime ratings but not rating behavior patterns. Key implications include:
 \begin{itemize}
-    \item Game (1.007) > Manga (0.747), $p<0.001$
-    \item Light Novel (0.908) > Manga (0.747), $p=0.034$
+    \item Production studios should prioritize manga adaptations for the highest probable ratings
+    \item Game adaptations carry a higher risk of lower average ratings
+    \item Original works and light novel adaptations show intermediate performance
+    \item Rating consistency patterns are similar regardless of source material
 \end{itemize}
 
-\section{Discussion}
+\newpage
+\section{Appendix}
+The project can be accessed at https://github.com/jiaobenhaimo/Bangumi-Data-Analysis under the BSD 2-Clause License. 
+\subsection{Appendix A: main.py}
+\begin{CJK*}{UTF8}{gbsn}
+\begin{minted}{python}
+import csv
+import json
+import pandas as pd
+import math
+import scipy.stats as stats
+import random
+import os
+from typing import Dict, List
 
-\subsection{Interpretation of Findings}
-The analysis reveals significant differences across adaptation sources. Manga adaptations demonstrate superior performance in both average rating (6.63) and rating consistency (SD=0.90). Game adaptations show the most polarized reception, with the lowest mean rating (6.08) and widest rating spread (SD=1.007). Light novel adaptations achieve moderate ratings (6.22) but with considerable variability between works (SD=1.07).
+CATEGORY_MAP = [
+    (4, ["轻小说改", "小说改", "LN改", "轻改", "小说改编", "轻小说改编"]),
+    (3, ["游戏改", "GAL改", "视觉小说改", "游戏改编", "游改", "galgame改", "遊戲改", "GAL改编"]),
+    (2, ["漫画改", "漫改", "漫画改编"]),
+    (1, ["原创", "原创动画"])
+]
 
-\subsection{Practical Implications}
-Production studios should prioritize manga acquisitions for reliable audience reception while approaching game adaptations with targeted strategies. Streaming platforms should curate game adaptations for niche audiences and light novel adaptations based on studio expertise. These findings enable evidence-based decision-making in content development and acquisition.
+def has_japan_tag(subject: Dict) -> bool:
+    japan_tag = False
+    tv_tag = False
+    
+    for tag in subject.get("tags", []):
+        if tag.get("name") == "日本":
+            japan_tag = True
+        if tag.get("name") == "TV":
+            tv_tag = True
+    
+    for mtag in subject.get("meta_tags", []):
+        if mtag == "日本":
+            japan_tag = True
+        if mtag == "TV":
+            tv_tag = True
+        
+    return japan_tag and tv_tag
 
-\subsection{Limitations}
-The study has several limitations: exclusive focus on Japanese productions, simplified classification of adaptation relationships, and lack of production budget covariates. The infinite F-statistic for rating spread warrants verification through alternative methods. Future research should incorporate longitudinal analysis and cross-cultural comparisons.
+def classify_subject(subject: Dict) -> int:
+    all_tags = []
+    for tag in subject.get("tags", []):
+        if "name" in tag:
+            all_tags.append(tag["name"])
+    all_tags.extend(subject.get("meta_tags", []))
+    
+    for cat_id, keywords in CATEGORY_MAP:
+        for kw in keywords:
+            if any(kw in tag for tag in all_tags):
+                return cat_id
+    
+    return 0
 
-\section{Conclusion and Recommendations}
+def sort_subject(output_path: str) -> None:
+    df = pd.read_csv(output_path)
+    sorted_df = df.sort_values(by=["Adapted From", "Date", "ID"], ascending=True)
+    sorted_df.to_csv(output_path, index=False)
 
-\subsection{Conclusion}
-This analysis provides statistically significant evidence that adaptation source materially influences anime reception. Manga adaptations achieve the highest and most stable ratings, while game adaptations show the most variable reception. These patterns confirm source material selection is a strategic decision with measurable consequences for audience reception.
+def process_subject(subject: Dict) -> Dict:
+    score_details = subject.get("score_details", {})
+    scores = [score_details.get(str(i), 0) for i in range(1, 11)]
+    total = sum(scores)
+    
+    if total < 30:
+        return None
 
-\subsection{Recommendations}
-\textbf{Industry Applications:}
-\begin{itemize}
-    \item Studios: Prioritize manga acquisitions
-    \item Platforms: Develop specialized recommendation algorithms
-    \item Marketers: Tailor campaigns to adaptation-specific audiences
-\end{itemize}
+    weighted_sum = sum(i * score for i, score in enumerate(scores, start=1))
+    mean = weighted_sum / total
+    variance = sum(score * (i - mean)**2 for i, score in enumerate(scores, start=1)) / total
+    sd = math.sqrt(variance)
 
-\textbf{Research Extensions:}
-\begin{itemize}
-    \item Longitudinal analysis of adaptation trends
-    \item Genre-specific adaptation patterns
-    \item Cross-cultural comparison of reception
-    \item Machine learning prediction models
-\end{itemize}
+    return {
+        "ID": subject["id"],
+        "Date": subject.get("date", "")[:4],
+        "Adapted From": classify_subject(subject),
+        **{str(i): scores[i-1] for i in range(1, 11)},
+        "Sum": total,
+        "Mean": mean,
+        "Standard Deviation": sd
+    }
 
+def process_jsonl(input_path: str, output_path: str) -> None:
+    data = []
+    
+    with open(input_path, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                subject = json.loads(line.strip())
+                if (subject.get("type") != 2 or 
+                    not has_japan_tag(subject) or 
+                    not subject.get("date")):
+                    continue
+                
+                if row := process_subject(subject):
+                    data.append(row)
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Error processing line: {str(e)}")
+    
+    df = pd.DataFrame(data)
+    if not df.empty:
+        df.sort_values(by=["Adapted From", "Date", "ID"], inplace=True)
+        df.to_csv(output_path, index=False)
+
+def generate_stats(data_path: str, stats_path: str) -> None:
+    df = pd.read_csv(data_path)
+    stats = []
+    categories = [0] + [cat_id for cat_id, _ in CATEGORY_MAP]
+    
+    overall_stats = calculate_category_stats(df, 0)
+    stats.append([0] + overall_stats)
+    
+    for cat_id, _ in CATEGORY_MAP:
+        cat_df = df[df["Adapted From"] == cat_id]
+        cat_stats = calculate_category_stats(cat_df, cat_id)
+        stats.append([cat_id] + cat_stats)
+    
+    stats_df = pd.DataFrame(stats, columns=[
+        "Adapted From", "Entries", "Mean", "Entry Spread", "Rating Spread"
+    ])
+    stats_df.to_csv(stats_path, index=False)
+
+def calculate_category_stats(df: pd.DataFrame, category: int) -> List[float]:
+    """Calculate statistics for a specific category"""
+    if df.empty:
+        return [0, 0.0, 0.0, 0.0]
+    
+    entries = len(df)
+    mean = df["Mean"].mean()
+    entry_spread = df["Standard Deviation"].mean()
+    rating_spread = df["Mean"].std(ddof=0)
+    
+    return [entries, mean, entry_spread, rating_spread]
+
+def random_sample(input_path: str, output_path: str, n: int = 45) -> None:
+    df = pd.read_csv(input_path)
+    samples = []
+    
+    for cat_id, _ in CATEGORY_MAP:
+        cat_df = df[df["Adapted From"] == cat_id]
+        if len(cat_df) > 0:
+            samples.append(cat_df.sample(min(n, len(cat_df)), replace=False))
+    
+    if samples:
+        pd.concat(samples).to_csv(output_path, index=False)
+
+def chi_gof(data_path: str) -> None:
+    sumMean=[0,0,0,0,0]
+    sumSD=[0,0,0,0,0]
+    ratingsd=[0,0,0,0,0]
+    with open(data_path, "r", newline="", encoding="utf-8-sig") as statsfile:
+        line=list(statsfile)[1:]
+        for i in range(5):
+            row=line[i].split(',')
+            sumMean[i]=float(row[2])
+            sumSD[i]=float(row[3])
+            ratingsd[i]=float(row[4])
+
+def anova_test(data_path: str) -> None:
+    df = pd.read_csv(data_path)
+    categories = [1, 2, 3, 4]
+    
+    print("One-way ANOVA results:")
+    
+    # Q1
+    groups_mean = [df[df['Adapted From'] == cat]['Mean'] for cat in categories]
+    f_stat_mean, p_value_mean = stats.f_oneway(*groups_mean)
+    print(f"1. Mean ratings: F({len(categories)-1},{len(df)-len(categories)}) = {f_stat_mean:.4f}, p = {p_value_mean:.4f}")
+    
+    # Q2
+    groups_sd = [df[df['Adapted From'] == cat]['Standard Deviation'] for cat in categories]
+    f_stat_sd, p_value_sd = stats.f_oneway(*groups_sd)
+    print(f"2. Entry spread: F({len(categories)-1},{len(df)-len(categories)}) = {f_stat_sd:.4f}, p = {p_value_sd:.4f}")
+    
+    # Q3
+    rating_spreads = [group.std(ddof=0) for group in groups_mean]
+    
+    levene_stat, levene_p = stats.levene(*groups_mean)
+    print(f"\n3. Levene's Test for Rating Spread Equality:")
+    print(f"   W-statistic = {levene_stat:.4f}, p-value = {levene_p:.4f}")
+    
+    print("\nRating Spread by Category:")
+    for i, cat in enumerate(categories):
+        print(f"   Category {cat} (n={len(groups_mean[i])}): {rating_spreads[i]:.4f}")
+        
+if __name__ == "__main__":
+    os.system("rm -rf data/*.csv")
+    process_jsonl("data/subject.jsonlines", "data/data.csv")
+    generate_stats("data/data.csv", "data/data_stats.csv")
+    random_sample("data/data.csv", "data/sample.csv")
+    generate_stats("data/sample.csv", "data/sample_stats.csv")
+    anova_test("data/sample.csv")
+
+
+if __name__ == "__main__":
+    os.system("rm -rf data/*.csv")
+    process_jsonl("data/subject.jsonlines", "data/data.csv")
+    generate_stats("data/data.csv", "data/data_stats.csv")
+    random_sample("data/data.csv", "data/sample.csv")
+    generate_stats("data/sample.csv", "data/sample_stats.csv")
+    chi_gof("data/sample_stats.csv")
+\end{minted}
+\end{CJK}
+\newpage
+\subsection{Appendix B: requirements.txt}
+\verbatiminput{requirements.txt}
+\markdownInput{readme.md}
 \end{document}
